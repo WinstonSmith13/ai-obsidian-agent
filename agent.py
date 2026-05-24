@@ -6,73 +6,67 @@ from datetime import date
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-SYSTEM_PROMPT = """# RÔLE
-Tu es l'assistant administratif personnel de Winston. Ton unique mission est de l'aider à liquider les tâches administratives qu'il a tendance à procrastiner. Tu es ultra-efficace, pragmatique et orienté action.
+SYSTEM_PROMPT = """# ROLE
+You are Winston's personal admin assistant. Your sole mission is to help him clear administrative tasks he tends to procrastinate on. You are ultra-efficient, pragmatic, and action-oriented.
 
-# DIRECTIVES DE COMPORTEMENT
-- **Pas de blabla :** Supprime les formules de politesse inutiles ("Bonjour Winston", "J'espère que tu vas bien", "Voici les étapes..."). Entre directement dans le vif du sujet.
-- **Ton :** Direct, factuel, légèrement directif mais bienveillant. Tu es là pour faire avancer les choses.
-- **Concision :** Réponses courtes. Va à l'essentiel.
+# BEHAVIOR
+- No filler: skip greetings and preamble. Get straight to the point.
+- Tone: direct, factual, slightly firm but supportive.
+- Keep it short. Cut everything that doesn't drive action.
 
-# FORMAT DE RÉPONSE
-1. **Plan d'action :** Présente la solution sous forme d'étapes numérotées claires, chronologiques et actionnables immédiatement.
-2. **Section de fin :** Termine obligatoirement et strictement chaque réponse par la section Obsidian ci-dessous.
+# RESPONSE FORMAT
+1. **Action plan:** Numbered steps, chronological, immediately actionable.
+2. **End section:** Always close with the Obsidian note below.
 
 ---
 
-## 📝 Note Obsidian
+## 📝 Obsidian Note
 ```markdown
-## [Titre de la tâche]
-- **Statut :** En cours
-- **Date :** {{date}}
-- **Résumé :** [Insérer un résumé ultra-court en 1 ou 2 phrases max]
-- **Prochaine action :** [La toute première action que Winston doit faire]"""
+## [Task title]
+- **Status:** In progress
+- **Date:** {{date}}
+- **Summary:** [1-2 sentence max]
+- **Next action:** [The very first thing Winston needs to do]"""
 
 
 def ask(question):
-    # 1. Extraction des mots-clés
     words = re.findall(r'\b\w{4,}\b', question.lower())
 
-    # 2. Recherche dans le vault
-    contexte_notes = ""
+    vault_context = ""
     if words:
-        notes_trouvees = search_notes(words)
-        if notes_trouvees:
-            contexte_notes = "\n\n=== CONTEXTE DE TON VAULT OBSIDIAN ===\n"
-            for note in notes_trouvees[:3]:
-                contexte_notes += f"--- {note['name']} ---\n{note['content']}\n\n"
-            contexte_notes += "======================================\n"
+        found_notes = search_notes(words)
+        if found_notes:
+            vault_context = "\n\n=== CONTEXT FROM YOUR OBSIDIAN VAULT ===\n"
+            for note in found_notes[:3]:
+                vault_context += f"--- {note['name']} ---\n{note['content']}\n\n"
+            vault_context += "========================================\n"
 
-    # 3. Appeler Claude pour la réponse
-    print("Laisse moi réfléchir...")
+    print("Thinking...")
     response = client.messages.create(
         model="claude-sonnet-4-5",
         max_tokens=1024,
         system=SYSTEM_PROMPT,
         messages=[
-            {"role": "user", "content": f"{contexte_notes}Question de Winston : {question}"}
+            {"role": "user", "content": f"{vault_context}Winston's question: {question}"}
         ]
     )
     answer = response.content[0].text
     print("\n" + answer)
 
-    # 4. Générer un titre intelligent pour la note
     today = date.today().strftime("%Y-%m-%d")
     title_response = client.messages.create(
         model="claude-sonnet-4-5",
         max_tokens=20,
-        messages=[{"role": "user", "content": f"Donne un titre de 3 mots max pour cette question : {question}. Réponds uniquement le titre, rien d'autre."}]
+        messages=[{"role": "user", "content": f"Give a 3-word max title for this question: {question}. Reply with the title only, nothing else."}]
     )
-    theme = title_response.content[0].text.strip()
-    filename = f"{today} - {theme}.md"
+    filename = f"{today} - {title_response.content[0].text.strip()}.md"
 
-    # 5. Sauvegarder dans le vault
     note_content = f"## ❓ {question}\n\n{answer}\n\n---\n"
     filepath = append_or_create_note(filename, note_content)
-    print(f"\nNote MAJ : {filepath}")
+    print(f"\nNote saved: {filepath}")
 
     return answer
 
 
 if __name__ == "__main__":
-    ask("J'ai fait une demande de renouvellement de carte de residence permanente au canada le 19 mars. Je n'ai toujours rien que faire ?")
+    ask("Quelles sont les taches urgentes aujourdhui ?")
