@@ -69,4 +69,13 @@ def ask(question):
 
 
 if __name__ == "__main__":
-    ask("Quelles sont les taches urgentes aujourdhui ?")
+    print("Winston's Admin Agent — type 'quit' to exit\n")
+    while True:
+        question = input("Your question: ").strip()
+        if question.lower() in ("quit", "exit", "q"):
+            print("Bye.")
+            break
+        if not question:
+            continue
+        ask(question)
+        print()
